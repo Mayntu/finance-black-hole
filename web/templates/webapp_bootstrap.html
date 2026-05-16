@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>FinanceBlackHole — загрузка</title>
+  <meta name="color-scheme" content="dark">
+  <style>:root{color-scheme:dark}</style>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    .boot-wrap {
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 24px; text-align: center; gap: 16px;
+      background: var(--bg, #080810);
+    }
+    .boot-spinner {
+      width: 40px; height: 40px; border: 3px solid var(--border, #fff2); border-top-color: var(--accent, #6366f1);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .boot-msg { max-width: 340px; color: var(--text-muted, #888); font-size: 14px; line-height: 1.55; }
+    .boot-err { color: var(--red, #f43f5e); }
+    .boot-hint { font-size: 13px; color: var(--text-dim, #94a3b8); margin-top: 8px; }
+    noscript { color: var(--red, #f43f5e); }
+  </style>
+</head>
+<body>
+  <noscript>Включите JavaScript — без него Mini App не работает.</noscript>
+  <div class="boot-wrap">
+    <div class="boot-spinner" id="spin"></div>
+    <div id="status" class="boot-msg">Подключаем дашборд…</div>
+  </div>
+  <script>
+    (function () {
+      const nextPath = "{{ next_path }}";
+      const twa = window.Telegram?.WebApp;
+      const status = document.getElementById('status');
+      const spin = document.getElementById('spin');
+
+      function fail(msg, hint) {
+        spin.style.display = 'none';
+        status.className = 'boot-msg boot-err';
+        status.textContent = msg;
+        if (hint) {
+          var p = document.createElement('div');
+          p.className = 'boot-hint';
+          p.textContent = hint;
+          status.parentNode.insertBefore(p, status.nextSibling);
+        }
+      }
+
+      if (twa) {
+        twa.ready();
+        twa.expand();
+      }
+
+      const urlToken = new URLSearchParams(location.search).get('token');
+      if (urlToken) {
+        location.replace(nextPath + '?token=' + encodeURIComponent(urlToken));
+        return;
+      }
+
+      function doAuth(initData) {
+        fetch('/api/webapp/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true',
+          },
+          body: JSON.stringify({ init_data: initData }),
+        })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (_ref) {
+            var ok = _ref.ok;
+            var j = _ref.j;
+            if (ok && j.token) {
+              location.replace(nextPath + '?token=' + encodeURIComponent(j.token));
+              return;
+            }
+            var detail = (j && j.detail) ? j.detail : 'Ошибка авторизации';
+            fail(typeof detail === 'string' ? detail : 'Сначала нажмите /start в боте.');
+          })
+          .catch(function () {
+            fail('Нет связи с сервером. Проверьте URL, Docker и ngrok.');
+          });
+      }
+
+      /* initData иногда появляется чуть позже ready() — несколько попыток */
+      var attempts = 0;
+      function waitInitData() {
+        var initData = twa && twa.initData;
+        if (initData) {
+          doAuth(initData);
+          return;
+        }
+        attempts += 1;
+        if (attempts < 35) {
+          setTimeout(waitInitData, 80);
+          return;
+        }
+        fail(
+          'Telegram не передал данные входа (initData). Обновите Telegram, проверьте домен Mini App в BotFather или попробуйте Cloudflare Tunnel вместо ngrok.',
+          'Убедитесь, что в заголовке вкладки «FinanceBlackHole», а не чужой сайт.'
+        );
+      }
+
+      if (twa) {
+        waitInitData();
+      } else {
+        fail(
+          'Откройте приложение из Telegram (кнопка меню «📊 Дашборд» или кнопки под /dashboard).',
+          'Красное сообщение в обычном браузере — нормально: сделайте /dashboard в боте и откройте выданную ссылку с ?token= или только Mini App внутри Telegram.'
+        );
+      }
+    })();
+  </script>
+</body>
+</html>

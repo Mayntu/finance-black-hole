@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% set active_page = "goals" %}
+{% block title %}Цели — FinanceBlackHole{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Финансовые <span>цели</span></h1>
+
+<!-- Active goals -->
+{% if active_goals %}
+  <div class="section-title">Активные ({{ active_goals | length }})</div>
+  <div class="goals-grid one-col">
+    {% for g in active_goals %}
+      {% set obj = g.obj %}
+      <div class="goal-card fade-up">
+        <div class="goal-title-row">
+          <div>
+            <div class="goal-title">{{ obj.title }}</div>
+            <div class="goal-meta">
+              {% if obj.deadline %}
+                <span>📅 до {{ obj.deadline.strftime('%d.%m.%Y') }}</span>
+                {% if g.days_left is not none %}
+                  <span>⏳ {{ g.days_left }} {% if g.days_left == 1 %}день{% elif 2 <= g.days_left <= 4 %}дня{% else %}дней{% endif %}</span>
+                {% endif %}
+              {% endif %}
+              {% if g.daily_needed %}
+                <span>💡 откладывать {{ "{:,.0f}".format(g.daily_needed) }} ₸/день</span>
+              {% endif %}
+            </div>
+          </div>
+          <div style="text-align:right; flex-shrink:0">
+            <div class="goal-amount">{{ g.pct }}%</div>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="progress-wrap" style="height:8px; margin-bottom:10px">
+          <div class="progress-fill {% if g.pct >= 75 %}green{% elif g.pct < 25 %}red{% endif %}"
+               style="width:{{ g.pct }}%"></div>
+        </div>
+
+        <!-- Amounts -->
+        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted)">
+          <span>Накоплено: <strong style="color:var(--text)">{{ "{:,.0f}".format(obj.current_amount) }} ₸</strong></span>
+          <span>Цель: <strong style="color:var(--text)">{{ "{:,.0f}".format(obj.target_amount) }} ₸</strong></span>
+        </div>
+
+        <!-- Remaining -->
+        {% set remaining = obj.target_amount - obj.current_amount %}
+        {% if remaining > 0 %}
+          <div style="margin-top:8px; font-size:13px; color:var(--text-muted)">
+            До цели: <strong style="color:var(--accent)">{{ "{:,.0f}".format(remaining) }} ₸</strong>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card one-col" style="text-align:center; padding:40px">
+    <div style="font-size:48px; margin-bottom:12px">🎯</div>
+    <div style="font-size:16px; font-weight:600; margin-bottom:8px">Нет активных целей</div>
+    <div style="color:var(--text-muted); margin-bottom:20px">Добавь цель в боте командой /goal</div>
+    <div style="font-size:13px; color:var(--text-muted)">
+      Цель — это якорь. Каждая трата будет оцениваться относительно неё.
+    </div>
+  </div>
+{% endif %}
+
+<!-- Completed goals -->
+{% if completed_goals %}
+  <div class="section-title" style="margin-top:24px">Выполнены ({{ completed_goals | length }})</div>
+  <div class="goals-grid one-col">
+    {% for g in completed_goals %}
+      {% set obj = g.obj %}
+      <div class="goal-card completed fade-up">
+        <div class="goal-title-row">
+          <div>
+            <div class="goal-title">
+              🏆 {{ obj.title }}
+            </div>
+            <div class="goal-meta">
+              {% if obj.completed_at %}
+                <span>Выполнена {{ obj.completed_at.strftime('%d.%m.%Y') }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <span class="badge badge-green">Готово</span>
+        </div>
+        <div style="font-size:14px; color:var(--text-muted)">
+          {{ "{:,.0f}".format(obj.target_amount) }} ₸ накоплено
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% endif %}
+
+<!-- Tip block -->
+<div class="card fade-up" style="margin-top:24px; border-color:var(--border-glow)">
+  <div style="display:flex; gap:14px; align-items:flex-start">
+    <span style="font-size:28px">💡</span>
+    <div>
+      <div style="font-weight:600; margin-bottom:4px">Как пополнить цель</div>
+      <div style="font-size:13px; color:var(--text-dim); line-height:1.7">
+        Напиши в бот: <strong>«отложил 5000»</strong> или используй команду <strong>/save 5000</strong><br>
+        Деньги автоматически добавятся к активной цели.
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

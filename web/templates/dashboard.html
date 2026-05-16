@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% set active_page = "dashboard" %}
+{% block title %}Дашборд — FinanceBlackHole{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Дашборд <span>сегодня</span></h1>
+
+{% if monthly.safe_to_spend %}
+<div class="safe-spend-card card fade-up">
+  <div class="safe-spend-label">💚 Можно потратить сегодня</div>
+  <div class="safe-spend-value {% if monthly.safe_to_spend.amount < 0 %}safe-neg{% endif %}">
+    {{ "{:,.0f}".format(monthly.safe_to_spend.amount) }} ₸
+  </div>
+  {% if monthly.safe_to_spend.amount < 0 %}
+  <div class="safe-spend-hint safe-neg-hint">Сегодня уже выше дневной нормы — завтра пересчитается.</div>
+  {% endif %}
+  <div class="safe-spend-breakdown">
+    <div>Бюджет месяца: <strong>{{ "{:,.0f}".format(monthly.safe_to_spend.budget) }} ₸</strong></div>
+    <div>Потрачено за месяц: <strong>{{ "{:,.0f}".format(monthly.safe_to_spend.spent_month) }} ₸</strong></div>
+    <div>Осталось дней: <strong>{{ monthly.safe_to_spend.days_remaining }}</strong></div>
+    <div class="safe-spend-eq">= {{ "{:,.0f}".format(monthly.safe_to_spend.daily_allowance) }} ₸/день → сегодня уже <strong>{{ "{:,.0f}".format(monthly.safe_to_spend.today_spent) }} ₸</strong></div>
+  </div>
+</div>
+{% elif not user.monthly_budget %}
+<div class="safe-spend-hint card fade-up" style="padding:14px 16px; font-size:13px; color:var(--text-muted)">
+  Задай месячный бюджет в боте: <code style="font-size:12px">/budget 150000</code> — здесь появится «сколько можно потратить сегодня».
+</div>
+{% endif %}
+
+<!-- Stat cards -->
+<div class="stats-grid">
+  <div class="stat-card fade-up">
+    <div class="stat-icon">💸</div>
+    <div class="stat-label">За месяц</div>
+    <div class="stat-value">{{ "{:,.0f}".format(monthly.current_month) }} ₸</div>
+    <div class="stat-sub">потрачено</div>
+    {% if monthly.projection %}
+    <details class="projection-details">
+      <summary>Прогноз до конца месяца</summary>
+      <div class="budget-projection budget-projection--folded">
+        <div class="budget-projection-line">
+          При таком темпе — <strong>{{ "{:,.0f}".format(monthly.projection.projected_end) }} ₸</strong>
+          к концу {{ monthly.projection.month_title }}
+        </div>
+        <div class="budget-projection-muted">{{ monthly.projection.calendar_tail }}</div>
+        {% if 'budget' in monthly.projection %}
+        <div class="budget-projection-budget">Бюджет: {{ "{:,.0f}".format(monthly.projection.budget) }} ₸</div>
+        {% if monthly.projection.is_over %}
+        <div class="budget-projection-warn">⚠️ превысишь на {{ "{:,.0f}".format(monthly.projection.over_amount) }} ₸</div>
+        {% elif monthly.projection.is_under %}
+        <div class="budget-projection-ok">Запас к лимиту: {{ "{:,.0f}".format(monthly.projection.under_amount) }} ₸</div>
+        {% elif monthly.projection.is_on_track %}
+        <div class="budget-projection-ok">По текущему темпу — вровень с бюджетом</div>
+        {% endif %}
+        {% else %}
+        <div class="budget-projection-muted" style="margin-top:4px">Задай бюджет в боте: <code>/budget сумма</code> — покажем риск перерасхода</div>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+    {% if monthly.month_change_pct is not none %}
+      {% if monthly.month_change_pct > 0 %}
+        <div class="stat-sub" style="color:var(--red)">▲ {{ monthly.month_change_pct }}% к прошлому</div>
+      {% elif monthly.month_change_pct < 0 %}
+        <div class="stat-sub" style="color:var(--green)">▼ {{ monthly.month_change_pct | abs }}% к прошлому</div>
+      {% else %}
+        <div class="stat-sub">= как прошлый месяц</div>
+      {% endif %}
+    {% else %}
+      <div class="stat-sub">Первый месяц</div>
+    {% endif %}
+  </div>
+
+  <div class="stat-card fade-up">
+    <div class="stat-icon">🎯</div>
+    <div class="stat-label">До цели</div>
+    {% if monthly.active_goal %}
+      <div class="stat-value" style="font-size:20px">{{ "{:,.0f}".format(monthly.active_goal.target_amount - monthly.active_goal.current_amount) }} ₸</div>
+      <div class="stat-sub">{{ monthly.active_goal.title }} · {{ monthly.active_goal.pct }}%</div>
+      <div style="margin-top:8px">
+        <div class="progress-wrap">
+          <div class="progress-fill" style="width:{{ monthly.active_goal.pct }}%"></div>
+        </div>
+      </div>
+    {% else %}
+      <div class="stat-value" style="font-size:16px; color:var(--text-muted)">Цель не задана</div>
+      <div class="stat-sub">Добавь в боте /goal</div>
+    {% endif %}
+  </div>
+
+  <div class="stat-card fade-up">
+    <div class="stat-icon">🔥</div>
+    <div class="stat-label">Стрик</div>
+    <div class="stat-value">{{ user.streak_days }}</div>
+    <div class="stat-sub">
+      {% if user.streak_days == 1 %}день подряд
+      {% elif 2 <= user.streak_days <= 4 %}дня подряд
+      {% else %}дней подряд{% endif %}
+    </div>
+  </div>
+
+  <div class="stat-card fade-up">
+    <div class="stat-icon">{{ lvl.emoji }}</div>
+    <div class="stat-label">Уровень</div>
+    <div class="stat-value">{{ lvl.level }}</div>
+    <div class="stat-sub">{{ lvl.name }}  ·  {{ user.xp }} XP</div>
+    <div style="margin-top:8px">
+      <div class="xp-bar-wrap">
+        <div class="xp-bar-fill" style="width:{{ lvl.progress_pct }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="charts-grid">
+  <!-- Donut: categories -->
+  <div class="card fade-up">
+    <div class="chart-title">Категории (30 дней)</div>
+    {% set cats = categories_json | tojson %}
+    <div style="position:relative; height:220px; display:flex; align-items:center; justify-content:center">
+      <canvas id="donutChart"></canvas>
+    </div>
+    <!-- Legend -->
+    <div id="catLegend" style="margin-top:14px; display:flex; flex-direction:column; gap:6px"></div>
+  </div>
+
+  <!-- Line: daily spending -->
+  <div class="card fade-up">
+    <div class="chart-title">Траты по дням</div>
+    <div style="position:relative; height:220px">
+      <canvas id="lineChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom row -->
+<div class="two-col">
+  <!-- Recent expenses -->
+  <div class="card fade-up">
+    <div class="section-title">Последние траты</div>
+    {% if recent %}
+      {% for e in recent %}
+        <div class="expense-row">
+          <div class="expense-dot
+            {% if e.is_conscious == true %}dot-conscious
+            {% elif e.is_conscious == false %}dot-impulsive
+            {% else %}dot-unknown{% endif %}"></div>
+          <div style="flex:1; min-width:0">
+            <div class="expense-label">{{ e.label or e.raw_input or e.category }}</div>
+            <div class="expense-cat">{{ e.category }}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="expense-amount {% if e.is_conscious == false %}imp{% endif %}">
+              {{ "{:,.0f}".format(e.amount) }} ₸
+            </div>
+            <div class="expense-date">{{ e.created_at.strftime('%d.%m') }}</div>
+          </div>
+        </div>
+      {% endfor %}
+      <div style="margin-top:12px">
+        <a href="/history?token={{ token }}" class="btn btn-ghost" style="width:100%; justify-content:center">Вся история →</a>
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">Пока нет трат</div>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Active mission -->
+  <div class="card fade-up">
+    <div class="section-title">Активная миссия</div>
+    {% if mission %}
+      <div class="mission-card">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px">
+          <div>
+            {% if mission.difficulty == 'easy' %}<span class="badge badge-green">Лёгкая</span>
+            {% elif mission.difficulty == 'medium' %}<span class="badge badge-yellow">Средняя</span>
+            {% else %}<span class="badge badge-red">Сложная</span>{% endif %}
+          </div>
+          <span class="badge badge-purple">⭐ {{ mission.reward_xp }} XP</span>
+        </div>
+        <div class="mission-title">{{ mission.title }}</div>
+        <div class="mission-desc">{{ mission.description }}</div>
+        <div class="divider"></div>
+        <div class="mission-meta">
+          ✅ <strong>Условие:</strong> {{ mission.success_criteria }}
+        </div>
+        {% set days_left = (mission.expires_at - now).days %}
+        <div class="mission-meta" style="margin-top:6px">
+          ⏳ Осталось {{ days_left }} {% if days_left == 1 %}день{% elif 2 <= days_left <= 4 %}дня{% else %}дней{% endif %}
+        </div>
+      </div>
+    {% else %}
+      <div class="empty">
+        <div class="empty-icon">🎖</div>
+        <div class="empty-text">Миссия появится в воскресенье</div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const categoriesData = {{ categories_json | safe }};
+const dailyData = {{ daily_json | safe }};
+
+// ── Colour palette ─────────────────────────────────────────────────────────
+const PALETTE = [
+  '#8b8cf8','#b07ff5','#e879f9','#f472b6','#fbbf24',
+  '#34d399','#22d3ee','#60a5fa','#a3e635','#c4b5fd',
+];
+
+// ── Donut chart ────────────────────────────────────────────────────────────
+const donutCtx = document.getElementById('donutChart');
+if (donutCtx && categoriesData.length) {
+  const donut = new Chart(donutCtx, {
+    type: 'doughnut',
+    data: {
+      labels: categoriesData.map(c => c.category),
+      datasets: [{
+        data: categoriesData.map(c => c.total),
+        backgroundColor: PALETTE,
+        borderColor: '#080713',
+        borderWidth: 3,
+        hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.label}: ${ctx.parsed.toLocaleString('ru')} ₸ (${categoriesData[ctx.dataIndex].pct}%)`
+          }
+        }
+      }
+    }
+  });
+
+  // Custom legend
+  const legend = document.getElementById('catLegend');
+  categoriesData.slice(0, 6).forEach((c, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:13px';
+    row.innerHTML = `
+      <div style="width:10px;height:10px;border-radius:2px;background:${PALETTE[i]};flex-shrink:0"></div>
+      <span style="flex:1;color:var(--text-dim)">${c.category}</span>
+      <span style="color:var(--text);font-weight:600">${c.pct}%</span>
+    `;
+    legend.appendChild(row);
+  });
+}
+
+// ── Line chart ─────────────────────────────────────────────────────────────
+const lineCtx = document.getElementById('lineChart');
+if (lineCtx) {
+  if (dailyData.length === 0) {
+    const wrap = lineCtx.closest('div');
+    if (wrap) {
+      wrap.innerHTML = '<div style="height:180px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:13px">Добавь больше трат — тут появится график 📈</div>';
+    }
+  } else {
+    const vals = dailyData.map(d => d.total);
+    const maxVal = Math.max(...vals);
+    const sugMax = Math.ceil(maxVal * 1.25 / 1000) * 1000 || 1000;
+    const chartType = dailyData.length < 2 ? 'bar' : 'line';
+    new Chart(lineCtx, {
+      type: chartType,
+      data: {
+        labels: dailyData.map(d => {
+          const [,m,day] = d.date.split('-');
+          return `${day}.${m}`;
+        }),
+        datasets: [{
+          data: vals,
+          borderColor: '#8b8cf8',
+          backgroundColor: 'rgba(139,140,248,0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointRadius: 3,
+          pointBackgroundColor: '#8b8cf8',
+          pointHoverRadius: 6,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: { label: ctx => `${ctx.parsed.y.toLocaleString('ru')} ₸` }
+          }
+        },
+        scales: {
+          x: {
+            grid: { color: 'rgba(140,120,255,0.08)' },
+            ticks: { maxTicksLimit: 7, maxRotation: 0, color: '#6b6890' }
+          },
+          y: {
+            min: 0, max: sugMax,
+            grid: { color: 'rgba(140,120,255,0.08)' },
+            ticks: {
+              maxTicksLimit: 4, color: '#6b6890',
+              callback: v => v >= 1000 ? (v/1000).toFixed(0)+'к' : v
+            }
+          }
+        }
+      }
+    });
+  }
+}
+</script>
+{% endblock %}

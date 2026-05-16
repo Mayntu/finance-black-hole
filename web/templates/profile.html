@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% set active_page = "profile" %}
+{% block title %}Профиль — FinanceBlackHole{% endblock %}
+
+{% block content %}
+<h1 class="page-title">Мой <span>профиль</span></h1>
+
+<div class="two-col" style="align-items:start">
+
+  <!-- Left col: personality + level -->
+  <div style="display:flex; flex-direction:column; gap:16px">
+
+    <!-- Personality card -->
+    {% if user.financial_personality %}
+      <div class="personality-card fade-up">
+        <span class="personality-emoji">
+          {{ user.personality_data.emoji if user.personality_data else '🌊' }}
+        </span>
+        <div class="personality-name">{{ user.financial_personality }}</div>
+        {% if user.personality_data %}
+          <div class="personality-desc">{{ user.personality_data.description }}</div>
+          {% if user.personality_data.dominant_pattern %}
+            <div style="margin-top:16px; padding:12px 16px; background:#ffffff08; border-radius:10px; text-align:left">
+              <div style="font-size:11px; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px">Доминирующий паттерн</div>
+              <div style="font-size:13px; color:var(--text-dim)">{{ user.personality_data.dominant_pattern }}</div>
+            </div>
+          {% endif %}
+          {% if user.personality_data.growth_hint %}
+            <div style="margin-top:10px; padding:12px 16px; background:var(--accent-dim); border-radius:10px; border:1px solid var(--border-glow); text-align:left">
+              <div style="font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px">📈 Следующий шаг</div>
+              <div style="font-size:13px; color:var(--text-dim)">{{ user.personality_data.growth_hint }}</div>
+            </div>
+          {% endif %}
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="card fade-up" style="text-align:center; padding:36px">
+        <div style="font-size:40px; margin-bottom:12px">🔮</div>
+        <div style="font-weight:600; margin-bottom:6px">Личность не определена</div>
+        <div style="font-size:13px; color:var(--text-muted)">Нужно 20+ трат для анализа</div>
+      </div>
+    {% endif %}
+
+    <!-- Level & XP -->
+    <div class="card fade-up">
+      <div class="section-title">Уровень и опыт</div>
+      <div style="display:flex; align-items:center; gap:14px; margin-bottom:16px">
+        <div style="font-size:40px">{{ lvl.emoji }}</div>
+        <div>
+          <div style="font-size:22px; font-weight:700">{{ lvl.name }}</div>
+          <div style="font-size:13px; color:var(--text-muted)">Уровень {{ lvl.level }}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:8px">
+        <div style="display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted); margin-bottom:6px">
+          <span>⭐ {{ user.xp }} XP</span>
+          {% if lvl.next_level %}
+            <span>до {{ lvl.next_level.name }}: {{ lvl.xp_needed - lvl.xp_in_level }} XP</span>
+          {% else %}
+            <span>Максимум</span>
+          {% endif %}
+        </div>
+        <div class="xp-bar-wrap" style="height:10px">
+          <div class="xp-bar-fill" style="width:{{ lvl.progress_pct }}%"></div>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:4px; text-align:right">{{ lvl.progress_pct }}%</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Stats row -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px">
+        <div style="text-align:center; padding:12px; background:#ffffff06; border-radius:10px">
+          <div style="font-size:28px; font-weight:700; color:var(--accent)">{{ user.streak_days }}</div>
+          <div style="font-size:12px; color:var(--text-muted)">дней стрика 🔥</div>
+        </div>
+        <div style="text-align:center; padding:12px; background:#ffffff06; border-radius:10px">
+          <div style="font-size:28px; font-weight:700; color:var(--green)">{{ consciousness.conscious_pct }}%</div>
+          <div style="font-size:12px; color:var(--text-muted)">осознанных трат</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right col: achievements -->
+  <div class="fade-up">
+    <div class="section-title" style="margin-bottom:16px">
+      Достижения ({{ earned_count }}/{{ total_ach }})
+    </div>
+    <div class="ach-grid">
+      {% for ach in achievements %}
+        <div class="ach-item {% if ach.earned %}earned{% else %}locked{% endif %}">
+          <span class="ach-emoji">{{ ach.emoji }}</span>
+          <div class="ach-title">{{ ach.title }}</div>
+          <div class="ach-desc">{{ ach.desc }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Consciousness breakdown -->
+<div class="card fade-up" style="margin-top:8px">
+  <div class="section-title">Осознанность (30 дней)</div>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px">
+    <div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px">
+        <span style="color:var(--green)">✅ Осознанные</span>
+        <span style="font-weight:600">{{ consciousness.conscious.count }} трат · {{ "{:,.0f}".format(consciousness.conscious.total) }} ₸</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-fill green" style="width:{{ consciousness.conscious_pct }}%"></div>
+      </div>
+    </div>
+    <div>
+      <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:8px">
+        <span style="color:var(--red)">⚠️ Импульсивные</span>
+        <span style="font-weight:600">{{ consciousness.impulsive.count }} трат · {{ "{:,.0f}".format(consciousness.impulsive.total) }} ₸</span>
+      </div>
+      <div class="progress-wrap">
+        <div class="progress-fill red" style="width:{{ 100 - consciousness.conscious_pct }}%"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

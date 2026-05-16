@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% set active_page = "history" %}
+{% block title %}История — FinanceBlackHole{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; flex-wrap:wrap">
+  <h1 class="page-title" style="margin-bottom:0">История <span>трат</span></h1>
+  <div style="font-size:13px; color:var(--text-muted)">{{ total }} записей</div>
+</div>
+
+<!-- Filters — custom buttons instead of native select -->
+<div class="filter-wrap fade-up">
+  <!-- Category filter -->
+  {% if all_cats %}
+  <div class="filter-scroll">
+    <a href="?token={{ token }}&conscious={{ filter_conscious }}"
+       class="filter-chip {% if not filter_category %}active{% endif %}">Все</a>
+    {% for cat in all_cats %}
+      <a href="?token={{ token }}&category={{ cat }}&conscious={{ filter_conscious }}"
+         class="filter-chip {% if filter_category == cat %}active{% endif %}">{{ cat }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Conscious filter -->
+  <div class="filter-scroll" style="margin-top:8px">
+    <a href="?token={{ token }}&category={{ filter_category }}"
+       class="filter-chip {% if not filter_conscious %}active{% endif %}">Все траты</a>
+    <a href="?token={{ token }}&category={{ filter_category }}&conscious=true"
+       class="filter-chip green {% if filter_conscious == 'true' %}active{% endif %}">✅ Осознанные</a>
+    <a href="?token={{ token }}&category={{ filter_category }}&conscious=false"
+       class="filter-chip red {% if filter_conscious == 'false' %}active{% endif %}">⚠️ Импульсивные</a>
+  </div>
+</div>
+
+<!-- Expense list (card-based, mobile-friendly) -->
+{% if expenses %}
+  <div class="expense-list fade-up">
+    {% for e in expenses %}
+    <div class="exp-card" data-eid="{{ e.id }}">
+      <div class="exp-card-inner">
+      <div class="exp-card-left">
+        <div class="exp-dot
+          {% if e.is_conscious == true %}dot-conscious
+          {% elif e.is_conscious == false %}dot-impulsive
+          {% else %}dot-unknown{% endif %}"></div>
+      </div>
+      <div class="exp-card-body">
+        <div class="exp-name">{{ e.label or e.raw_input or e.category }}</div>
+        <div class="exp-meta">
+          <span class="badge badge-purple exp-cat" style="font-size:10px; padding:2px 7px">{{ e.category }}</span>
+          {% if e.is_conscious == true %}
+            <span class="badge badge-green" style="font-size:10px; padding:2px 7px">Осознанная</span>
+          {% elif e.is_conscious == false %}
+            <span class="badge badge-red" style="font-size:10px; padding:2px 7px">Импульсивная</span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="exp-card-right">
+        <div class="exp-amount {% if e.is_conscious == false %}imp{% endif %}">
+          {{ "{:,.0f}".format(e.amount) }} ₸
+        </div>
+        <div class="exp-date">{{ e.created_at.strftime('%d.%m') }}</div>
+      </div>
+      </div>
+      <div class="exp-card-actions">
+        <button type="button" class="btn-text js-edit-exp">Изменить</button>
+        <button type="button" class="btn-text danger js-del-exp">Удалить</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card fade-up">
+    <div class="empty" style="padding:50px 20px">
+      <div class="empty-icon">🔍</div>
+      <div class="empty-text">Трат не найдено</div>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Pagination -->
+{% if pages > 1 %}
+  <div class="pagination">
+    {% if page > 1 %}
+      <a href="?token={{ token }}&page={{ page-1 }}&category={{ filter_category }}&conscious={{ filter_conscious }}"
+         class="page-btn">←</a>
+    {% endif %}
+    {% for p in range([1, page-2] | max, [pages+1, page+3] | min) %}
+      <a href="?token={{ token }}&page={{ p }}&category={{ filter_category }}&conscious={{ filter_conscious }}"
+         class="page-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+    {% endfor %}
+    {% if page < pages %}
+      <a href="?token={{ token }}&page={{ page+1 }}&category={{ filter_category }}&conscious={{ filter_conscious }}"
+         class="page-btn">→</a>
+    {% endif %}
+    <span class="page-info">{{ page }} / {{ pages }}</span>
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<div id="editBackdrop" class="modal-backdrop" hidden>
+  <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="editTitle" onclick="event.stopPropagation()">
+    <h3 id="editTitle">Изменить трату</h3>
+    <input type="hidden" id="editEid" value="">
+    <div class="modal-field">
+      <label for="editLabel">Название</label>
+      <input id="editLabel" type="text" maxlength="120" autocomplete="off">
+    </div>
+    <div class="modal-field">
+      <label for="editAmount">Сумма (₸)</label>
+      <input id="editAmount" type="number" inputmode="decimal" min="1" step="1" autocomplete="off">
+    </div>
+    <div class="modal-field">
+      <label for="editCat">Категория</label>
+      <input id="editCat" type="text" maxlength="64" autocomplete="off">
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" id="editCancel">Отмена</button>
+      <button type="button" class="btn btn-primary" id="editSave">Сохранить</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const TOKEN = {{ token | tojson }};
+  const backdrop = document.getElementById('editBackdrop');
+  const editEid = document.getElementById('editEid');
+  const editLabel = document.getElementById('editLabel');
+  const editAmount = document.getElementById('editAmount');
+  const editCat = document.getElementById('editCat');
+
+  function closeModal() {
+    backdrop.hidden = true;
+  }
+  backdrop.addEventListener('click', function () { closeModal(); });
+  document.getElementById('editCancel').addEventListener('click', closeModal);
+
+  function parseAmountFromCard(card) {
+    const t = card.querySelector('.exp-amount').textContent.replace(/\s/g, '').replace('₸', '').replace(/,/g, '');
+    const n = parseFloat(t.replace(/\u00a0/g, ''));
+    return isNaN(n) ? 0 : n;
+  }
+
+  document.querySelector('.expense-list')?.addEventListener('click', function (ev) {
+    const card = ev.target.closest('.exp-card');
+    if (!card) return;
+    const id = card.dataset.eid;
+    if (ev.target.classList.contains('js-del-exp')) {
+      if (!confirm('Удалить эту трату?')) return;
+      fetch('/api/expenses/record/' + id + '?token=' + encodeURIComponent(TOKEN), { method: 'DELETE' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('delete');
+          location.reload();
+        })
+        .catch(function () { alert('Не удалось удалить'); });
+      return;
+    }
+    if (ev.target.classList.contains('js-edit-exp')) {
+      editEid.value = id;
+      editLabel.value = card.querySelector('.exp-name').textContent.trim();
+      editAmount.value = String(Math.round(parseAmountFromCard(card)));
+      editCat.value = card.querySelector('.exp-cat')?.textContent.trim() || '';
+      backdrop.hidden = false;
+    }
+  });
+
+  document.getElementById('editSave').addEventListener('click', function () {
+    const id = editEid.value;
+    const label = editLabel.value.trim();
+    const amount = parseFloat(String(editAmount.value).replace(',', '.'));
+    const category = editCat.value.trim();
+    if (!label || !category || !amount || amount <= 0) {
+      alert('Заполни все поля');
+      return;
+    }
+    fetch('/api/expenses/record/' + id + '?token=' + encodeURIComponent(TOKEN), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: label, amount: amount, category: category }),
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('patch');
+        location.reload();
+      })
+      .catch(function () { alert('Не удалось сохранить'); });
+  });
+})();
+</script>
+{% endblock %}

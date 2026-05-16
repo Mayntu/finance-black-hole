@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% block title %}FinanceBlackHole{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Telegram Mini App SDK — MUST load before any other script -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <meta name="theme-color" content="#080713">
+  <meta name="color-scheme" content="dark">
+  <style>:root{color-scheme:dark}</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar (desktop only) -->
+  <nav class="sidebar">
+    <a class="sidebar-logo" href="/dashboard?token={{ token }}">
+      <div class="sidebar-logo-icon">🕳️</div>
+      FinanceBH
+    </a>
+
+    <a href="/dashboard?token={{ token }}" class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">📊</span> Дашборд
+    </a>
+    <a href="/goals?token={{ token }}" class="nav-item {% if active_page == 'goals' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">🎯</span> Цели
+    </a>
+    <a href="/history?token={{ token }}" class="nav-item {% if active_page == 'history' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">📋</span> История
+    </a>
+    <a href="/profile?token={{ token }}" class="nav-item {% if active_page == 'profile' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">👤</span> Профиль
+    </a>
+
+    <div class="sidebar-footer">
+      <div class="user-pill">
+        <div class="user-avatar">{{ user.full_name[0] | upper }}</div>
+        <div class="user-info">
+          <div class="user-name">{{ user.full_name }}</div>
+          <div class="user-level">{{ lvl.emoji }} {{ lvl.name }}</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+<!-- Bottom nav (mobile / Mini App) -->
+<nav class="bottom-nav">
+  <div class="bottom-nav-items">
+    <a href="/dashboard?token={{ token }}" class="bottom-nav-item {% if active_page == 'dashboard' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">📊</span>
+      <span>Дашборд</span>
+    </a>
+    <a href="/goals?token={{ token }}" class="bottom-nav-item {% if active_page == 'goals' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">🎯</span>
+      <span>Цели</span>
+    </a>
+    <a href="/history?token={{ token }}" class="bottom-nav-item {% if active_page == 'history' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">📋</span>
+      <span>История</span>
+    </a>
+    <a href="/profile?token={{ token }}" class="bottom-nav-item {% if active_page == 'profile' %}active{% endif %}"
+       onclick="haptic()">
+      <span class="nav-icon">👤</span>
+      <span>Я</span>
+    </a>
+  </div>
+</nav>
+
+{% block scripts %}{% endblock %}
+
+<script>
+// ── Telegram WebApp init ────────────────────────────────────────────────────
+const twa = window.Telegram?.WebApp;
+
+function haptic(type = 'light') {
+  twa?.HapticFeedback?.impactOccurred(type);
+}
+
+(function initMiniApp() {
+  if (!twa) return;
+
+  // Expand to full screen
+  twa.ready();
+  twa.expand();
+  twa.disableVerticalSwipes?.();
+
+  // Back button — navigate back in history or close
+  twa.BackButton.onClick(() => {
+    haptic();
+    if (history.length > 1) {
+      history.back();
+    } else {
+      twa.close();
+    }
+  });
+
+  // Show back button on non-dashboard pages
+  const page = '{{ active_page }}';
+  if (page !== 'dashboard') {
+    twa.BackButton.show();
+  }
+
+  // Force Telegram WebView to use our dark background (overrides any light theme injection)
+  document.documentElement.style.setProperty('color-scheme', 'dark');
+  document.documentElement.setAttribute('data-theme', 'dark');
+})();
+
+// ── Chart.js dark theme defaults ────────────────────────────────────────────
+Chart.defaults.color = '#6b6890';
+Chart.defaults.borderColor = 'rgba(140,120,255,0.08)';
+Chart.defaults.font.family = "'Outfit', system-ui, sans-serif";
+</script>
+</body>
+</html>

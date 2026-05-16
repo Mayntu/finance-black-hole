@@ -1,0 +1,40 @@
+# Telegram Bot (3.13.x pins pydantic<2.10 — conflicts with FastAPI stack)
+aiogram==3.28.2
+
+# FastAPI
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+httpx==0.27.2
+
+# Database
+sqlalchemy==2.0.36
+asyncpg==0.30.0
+alembic==1.14.0
+
+# Redis
+redis==5.2.1
+
+# Celery
+celery==5.4.0
+
+# AI
+openai==1.57.2
+
+# Config & validation
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Logging
+structlog==24.4.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib==1.7.4
+
+# Web templates
+jinja2==3.1.4
+python-multipart==0.0.17
+aiofiles==24.1.0
+
+# Utils
+python-dotenv==1.0.1
